@@ -7,6 +7,7 @@ const init = (bot) => {
   // Обработка команд
   bot.command('start', commandHandler.start);
   bot.command('help', commandHandler.help);
+  bot.command('register', commandHandler.register);
   
   // Обработка текстовых сообщений
   bot.on('message', messageHandler.handleMessage);

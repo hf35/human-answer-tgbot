@@ -5,7 +5,7 @@ import { open } from 'sqlite';
 // Инициализация базы данных
 let db;
 
-const init = async () => {
+export const init = async () => {
   try {
     // Для начальной реализации используем SQLite
     db = await open({
@@ -22,11 +22,10 @@ const init = async () => {
 };
 
 // Получение экземпляра базы данных
-const getDB = () => {
+export const getDB = () => {
   if (!db) {
     throw new Error('База данных не инициализирована. Сначала вызовите init().');
   }
   return db;
 };
 
-export { init, getDB };

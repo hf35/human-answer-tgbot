@@ -1,7 +1,7 @@
 // Сервис управления пользователями
 import { getDB } from '../database/db.js';
 
-const getUser = async (telegramId) => {
+export const getUser = async (telegramId) => {
   const db = getDB();
   try {
     const user = await db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId]);
@@ -12,7 +12,7 @@ const getUser = async (telegramId) => {
   }
 };
 
-const createUser = async (userData) => {
+export const createUser = async (userData) => {
   const db = getDB();
   try {
     const result = await db.run(
@@ -26,7 +26,7 @@ const createUser = async (userData) => {
   }
 };
 
-const getAllUsers = async () => {
+export const getAllUsers = async () => {
   const db = getDB();
   try {
     const users = await db.all('SELECT * FROM users');
@@ -36,5 +36,3 @@ const getAllUsers = async () => {
     throw error;
   }
 };
-
-export { getUser, createUser, getAllUsers };
