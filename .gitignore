@@ -1,0 +1,44 @@
+# Dependencies
+/node_modules
+/.npm
+/.yarn
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+/database.sqlite
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Build artifacts
+/dist
+/build
+*.build
+
+# Node.js
+.nyc_output
+coverage
+.nyc_output
+
+# Editor
+*~
+*.backup
+*.orig
