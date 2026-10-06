@@ -15,25 +15,39 @@ export class MessageBusinessService {
    */
   async handleMessage(sender, messageText) {
     try {
-      // Проверяем, есть ли у пользователя непрочитанные сообщения
+      // Проверяем, есть ли у пользователя непрочитанные входящие сообщения.
+      // Ответ на входящее сообщение разрешён всегда — иначе пользователи
+      // не смогли бы ответить друг другу и диалог был бы заблокирован.
       const unrepliedMessages = await this.chatService.getUnrepliedMessages(sender.id);
-      
+
       if (unrepliedMessages && unrepliedMessages.length > 0) {
         // Отвечаем на последнее непрочитанное сообщение
         await this.replyToLastMessage(sender, messageText);
         return { type: 'reply', message: 'Ответ отправлен на последнее непрочитанное сообщение' };
-      } else {
-        // Если у пользователя нет непрочитанных сообщений, 
-        // то отправляем сообщение только если пользователь зарегистрирован
-        const user = await this.chatService.getUser(sender.id);
-        if (!user) {
-          return { type: 'error', message: messages.ru.USER_NOT_REGISTERED };
-        }
-        
-        // Пересылаем как новое сообщение
-        const result = await this.forwardMessage(sender, messageText);
-        return { type: 'forward', message: 'Сообщение переслано', data: result };
       }
+
+      // Новых входящих нет. Проверяем, не ждёт ли пользователь ответа
+      // на своё предыдущее сообщение: правило «одно сообщение — один ответ».
+      const awaitingReply = await this.chatService.getAwaitingReplyMessages(sender.id);
+      if (awaitingReply && awaitingReply.length > 0) {
+        const pending = awaitingReply[awaitingReply.length - 1];
+        const receiverName =
+          `${pending.receiver_first_name || ''} ${pending.receiver_last_name || ''}`.trim() ||
+          `Пользователь ${pending.receiver_id}`;
+        return {
+          type: 'error',
+          message: messages.ru.AWAITING_REPLY.replace('%s', receiverName)
+        };
+      }
+
+      // Нет входящих и нет ожидающих ответа — отправляем новое сообщение
+      const user = await this.chatService.getUser(sender.id);
+      if (!user) {
+        return { type: 'error', message: messages.ru.USER_NOT_REGISTERED };
+      }
+
+      const result = await this.forwardMessage(sender, messageText);
+      return { type: 'forward', message: 'Сообщение переслано', data: result };
     } catch (error) {
       console.error('Ошибка при обработке сообщения:', error);
       throw new Error(messages.ru.ERROR_MESSAGE_PROCESSING);
@@ -61,6 +75,65 @@ export class MessageBusinessService {
       return result;
     } catch (error) {
       console.error('Ошибка при пересылке сообщения:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Отправить сообщение от имени пользователя конкретному получателю
+   * @param {Object} sender - отправитель
+   * @param {number} receiverId - ID получателя
+   * @param {string} messageText - текст сообщения
+   * @returns {Promise<Object>}
+   */
+  async sendMessageToUser(sender, receiverId, messageText) {
+    try {
+      // Правило «одно сообщение — один ответ» действует и при ручном
+      // выборе получателя: пока на отправленное сообщение нет ответа,
+      // новое отправить нельзя.
+      const awaitingReply = await this.chatService.getAwaitingReplyMessages(sender.id);
+      if (awaitingReply && awaitingReply.length > 0) {
+        const pending = awaitingReply[awaitingReply.length - 1];
+        const receiverName =
+          `${pending.receiver_first_name || ''} ${pending.receiver_last_name || ''}`.trim() ||
+          `Пользователь ${pending.receiver_id}`;
+        throw new Error(messages.ru.AWAITING_REPLY.replace('%s', receiverName));
+      }
+
+      // Если у отправителя есть непрочитанное входящее сообщение,
+      // отправка в диалог с его автором считается ответом: помечаем
+      // исходное сообщение отвеченным, иначе отправитель навсегда
+      // останется «занятым» и больше не будет получать сообщений.
+      const unreplied = await this.chatService.getUnrepliedMessages(sender.id);
+      let replyMessageId = null;
+
+      if (unreplied && unreplied.length > 0) {
+        const pending = unreplied[0]; // последнее непрочитанное
+
+        if (Number(pending.sender_id) !== Number(receiverId)) {
+          const pendingAuthor = await this.chatService.getUser(pending.sender_id);
+          const authorName =
+            `${pendingAuthor?.first_name || ''} ${pendingAuthor?.last_name || ''}`.trim() ||
+            `Пользователь ${pending.sender_id}`;
+          throw new Error(
+            `У вас непрочитанное сообщение от ${authorName}. Сначала ответьте ему.`
+          );
+        }
+
+        replyMessageId = pending.id;
+      }
+
+      const result = await this.chatService.sendMessageToUser(
+        sender, receiverId, messageText, replyMessageId
+      );
+
+      return {
+        type: replyMessageId ? 'reply' : 'direct',
+        message: replyMessageId ? 'Ответ отправлен' : 'Сообщение отправлено',
+        data: result
+      };
+    } catch (error) {
+      console.error('Ошибка при отправке сообщения:', error);
       throw error;
     }
   }
@@ -169,6 +242,64 @@ export class MessageBusinessService {
       return dialogs;
     } catch (error) {
       console.error('Ошибка при получении всех диалогов:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Получить все сообщения пользователя (как отправленные, так и полученные)
+   * @param {number} userId - ID пользователя
+   * @returns {Promise<Array>}
+   */
+  async getUserMessages(userId) {
+    try {
+      const db = getDB();
+      const messages = await db.all(`
+        SELECT m.*, 
+               u1.first_name as sender_first_name, 
+               u1.last_name as sender_last_name,
+               u2.first_name as receiver_first_name, 
+               u2.last_name as receiver_last_name
+        FROM messages m
+        LEFT JOIN users u1 ON m.sender_id = u1.telegram_id
+        LEFT JOIN users u2 ON m.receiver_id = u2.telegram_id
+        WHERE m.sender_id = ? OR m.receiver_id = ?
+        ORDER BY m.forwarded_at ASC
+      `, [userId, userId]);
+      
+      // Формируем информацию о пользователях для каждого сообщения
+      const formatUserName = (firstName, lastName, telegramId) => {
+        const fullName = `${firstName || ''} ${lastName || ''}`.trim();
+        return fullName || `Пользователь ${telegramId}`;
+      };
+
+      return messages.map(message => {
+        const isSent = Number(message.sender_id) === Number(userId);
+        return {
+          id: message.id,
+          sender_id: message.sender_id,
+          receiver_id: message.receiver_id,
+          message_text: message.message_text,
+          reply_message_id: message.reply_message_id,
+          replied: Boolean(message.replied),
+          forwarded_at: message.forwarded_at,
+          // Названия отправителя и получателя всегда соответствуют своим ID
+          sender_name: formatUserName(
+            message.sender_first_name,
+            message.sender_last_name,
+            message.sender_id
+          ),
+          receiver_name: formatUserName(
+            message.receiver_first_name,
+            message.receiver_last_name,
+            message.receiver_id
+          ),
+          // Флаг для фронтенда: сообщение отправлено этим пользователем
+          is_sent: isSent
+        };
+      });
+    } catch (error) {
+      console.error('Ошибка при получении сообщений пользователя:', error);
       throw error;
     }
   }

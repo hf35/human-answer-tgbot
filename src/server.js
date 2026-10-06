@@ -1,7 +1,7 @@
 // Запуск веб-сервера для API и веб-интерфейса
 import { app, initializeDatabase } from './backend/main.js';
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {

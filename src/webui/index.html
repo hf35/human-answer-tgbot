@@ -100,6 +100,24 @@
         .refresh-btn:hover {
             background-color: #218838;
         }
+        .message-pair {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #007bff;
+        }
+        .question {
+            background-color: #e3f2fd;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+        .answer {
+            background-color: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -132,7 +150,7 @@
             }
         }
         
-        // Функция для отображения всех диалогов
+        // Функция для отображения всех диалогов как пары вопрос-ответ
         function displayAllDialogs(dialogs) {
             const resultsDiv = document.getElementById('results');
             
@@ -141,47 +159,28 @@
                 return;
             }
             
-            // Группируем диалоги по парам пользователей
-            const dialogGroups = {};
-            dialogs.forEach(dialog => {
-                // Создаем уникальный ключ для пары пользователей
-                const senderId = dialog.sender_id;
-                const receiverId = dialog.receiver_id;
-                const key = `${Math.min(senderId, receiverId)}-${Math.max(senderId, receiverId)}`;
-                
-                if (!dialogGroups[key]) {
-                    dialogGroups[key] = {
-                        sender_id: senderId,
-                        receiver_id: receiverId,
-                        messages: []
-                    };
-                }
-                dialogGroups[key].messages.push(dialog);
-            });
+            // Сортируем диалоги по времени
+            const sortedDialogs = [...dialogs].sort((a, b) => new Date(a.forwarded_at) - new Date(b.forwarded_at));
             
-            let html = '<h2>Все диалоги</h2>';
+            let html = '<h2>Все пары вопрос-ответ</h2>';
             
-            // Отображаем каждую группу диалогов
-            Object.values(dialogGroups).forEach(group => {
-                html += `<div class="dialog-item">
-                    <div class="dialog-header">
-                        <h3>Диалог между пользователем ${group.sender_id} и пользователем ${group.receiver_id}</h3>
-                    </div>`;
+            // Отображаем каждый диалог как отдельную пару
+            sortedDialogs.forEach((dialog, index) => {
+                const senderName = dialog.sender_name || `Пользователь ${dialog.sender_id}`;
+                const receiverName = dialog.receiver_name || `Пользователь ${dialog.receiver_id}`;
                 
-                group.messages.forEach(dialog => {
-                    const isSent = dialog.sender_id === group.sender_id;
-                    const messageClass = isSent ? 'sent' : 'received';
-                    const senderName = dialog.sender_name || `Пользователь ${dialog.sender_id}`;
-                    const receiverName = dialog.receiver_name || `Пользователь ${dialog.receiver_id}`;
-                    
-                    html += `<div class="message ${messageClass}">
-                        <div class="user-info">${isSent ? 'Отправлено' : 'Получено'}: ${senderName}</div>
-                        <div>${dialog.message_text}</div>
-                        <div class="timestamp">${new Date(dialog.forwarded_at).toLocaleString('ru-RU')}</div>
-                    </div>`;
-                });
-                
-                html += '</div>';
+                html += `<div class="message-pair">
+                    <h3>Диалог #${index + 1}</h3>
+                    <div class="question">
+                        <strong>${senderName}:</strong> ${dialog.message_text}
+                    </div>
+                    <div class="answer">
+                        <strong>${receiverName}:</strong> ${dialog.reply_text || 'Нет ответа'}
+                    </div>
+                    <div class="timestamp">
+                        Время: ${new Date(dialog.forwarded_at).toLocaleString('ru-RU')}
+                    </div>
+                </div>`;
             });
             
             resultsDiv.innerHTML = html;

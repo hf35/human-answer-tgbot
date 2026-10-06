@@ -47,6 +47,17 @@ export class IChatService {
   }
 
   /**
+   * Отправить сообщение конкретному получателю
+   * @param {Object} sender - отправитель
+   * @param {number} receiverId - ID получателя
+   * @param {string} messageText - текст сообщения
+   * @returns {Promise<Object>}
+   */
+  async sendMessageToUser(sender, receiverId, messageText) {
+    throw new Error('Метод sendMessageToUser должен быть реализован');
+  }
+
+  /**
    * Ответить на сообщение
    * @param {Object} user - пользователь, который отвечает
    * @param {string} replyText - текст ответа
@@ -63,5 +74,14 @@ export class IChatService {
    */
   async getUnrepliedMessages(userId) {
     throw new Error('Метод getUnrepliedMessages должен быть реализован');
+  }
+
+  /**
+   * Получить сообщения, отправленные пользователем и ещё не получившие ответа
+   * @param {number} userId - ID пользователя
+   * @returns {Promise<Array>}
+   */
+  async getAwaitingReplyMessages(userId) {
+    throw new Error('Метод getAwaitingReplyMessages должен быть реализован');
   }
 }

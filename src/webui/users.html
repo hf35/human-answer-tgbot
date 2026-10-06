@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пользователи бота</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #1f2328;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin: 0 0 20px;
+            font-size: 1.6rem;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 9px 16px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.15s ease;
+        }
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .refresh-btn {
+            background-color: #28a745;
+        }
+        .refresh-btn:hover:not(:disabled) {
+            background-color: #218838;
+        }
+        .add-user-btn {
+            background-color: #17a2b8;
+        }
+        .add-user-btn:hover:not(:disabled) {
+            background-color: #138496;
+        }
+        input, select {
+            padding: 9px;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        /* Layout: user list on the left, messenger on the right */
+        .messenger {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        .panel {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eaecef;
+            font-weight: 600;
+            font-size: 0.95rem;
+            background-color: #fafbfc;
+        }
+
+        .user-list {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .user-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f2f5;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .user-item:hover {
+            background-color: #f6f8fa;
+        }
+        .user-item.active {
+            background-color: #e7f1ff;
+            box-shadow: inset 3px 0 0 #007bff;
+        }
+        .user-item-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .user-item-sub {
+            font-size: 0.8rem;
+            color: #656d76;
+            margin-top: 2px;
+        }
+        .badge {
+            background-color: #eaecef;
+            color: #57606a;
+            border-radius: 10px;
+            padding: 1px 8px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-unread {
+            background-color: #0969da;
+            color: white;
+        }
+
+        /* Messenger view */
+        .chat-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #eaecef;
+            background-color: #fafbfc;
+        }
+        .chat-header-title {
+            font-weight: 600;
+        }
+        .chat-header-sub {
+            font-size: 0.8rem;
+            color: #656d76;
+            margin-top: 2px;
+        }
+        .chat-body {
+            padding: 16px;
+            height: 50vh;
+            min-height: 320px;
+            overflow-y: auto;
+            background-color: #f6f8fa;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .day-separator {
+            align-self: center;
+            background-color: #eaecef;
+            color: #57606a;
+            border-radius: 12px;
+            padding: 3px 12px;
+            font-size: 0.75rem;
+            margin: 6px 0;
+        }
+
+        /* Bubbles: own messages on the right, others on the left */
+        .bubble-row {
+            display: flex;
+            max-width: 75%;
+        }
+        .bubble-row.own {
+            align-self: flex-end;
+            justify-content: flex-end;
+        }
+        .bubble-row.other {
+            align-self: flex-start;
+        }
+        .bubble {
+            padding: 8px 12px;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .bubble-row.own .bubble {
+            background-color: #d9fdd3;
+            border-bottom-right-radius: 4px;
+        }
+        .bubble-row.other .bubble {
+            background-color: white;
+            border: 1px solid #eaecef;
+            border-bottom-left-radius: 4px;
+        }
+        .bubble-author {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #0969da;
+            margin-bottom: 3px;
+        }
+        .bubble-time {
+            font-size: 0.7rem;
+            color: #656d76;
+            margin-top: 3px;
+            text-align: right;
+        }
+        .reply-quote {
+            border-left: 3px solid #0969da;
+            background-color: rgba(9, 105, 218, 0.08);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            margin-bottom: 5px;
+            color: #57606a;
+        }
+
+        .composer {
+            display: flex;
+            gap: 10px;
+            padding: 12px 16px;
+            border-top: 1px solid #eaecef;
+            background-color: #fafbfc;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .composer input[type="text"] {
+            flex: 1;
+            min-width: 180px;
+        }
+        .composer select {
+            max-width: 220px;
+        }
+        /* Clearly show who the message will be sent to */
+        .recipient-hint {
+            font-size: 0.8rem;
+            color: #57606a;
+            margin-bottom: 8px;
+        }
+        .recipient-hint strong {
+            color: #0969da;
+        }
+        .recipient-hint.blocked {
+            color: #9a6700;
+            font-weight: 600;
+        }
+        input:disabled {
+            background-color: #f0f2f5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: #656d76;
+            font-size: 0.9rem;
+        }
+        .status {
+            margin-left: auto;
+            font-size: 0.8rem;
+            color: #656d76;
+        }
+        .status.error {
+            color: #cf222e;
+        }
+        .status.success {
+            color: #1a7f37;
+        }
+
+        #add-user-form {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .form-group input {
+            width: 100%;
+            max-width: 320px;
+        }
+
+        @media (max-width: 900px) {
+            .messenger {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Пользователи бота</h1>
+
+        <div class="controls">
+            <button class="refresh-btn" onclick="loadUsers()">Обновить список</button>
+            <button class="add-user-btn" onclick="toggleAddUserForm()">Добавить пользователя</button>
+            <span id="global-status" class="status"></span>
+        </div>
+
+        <div class="messenger">
+            <!-- Left: list of users -->
+            <div class="panel">
+                <div class="panel-header">Пользователи</div>
+                <div id="user-list" class="user-list">
+                    <div class="empty-state">Загрузка пользователей...</div>
+                </div>
+            </div>
+
+            <!-- Right: structured conversation of the selected user -->
+            <div class="panel">
+                <div id="chat-header" class="chat-header">
+                    <div class="chat-header-title">Выберите пользователя</div>
+                    <div class="chat-header-sub">Все переписки этого пользователя будут показаны ниже</div>
+                </div>
+                <div id="chat-body" class="chat-body">
+                    <div class="empty-state">Пользователь не выбран</div>
+                </div>
+                <div class="composer">
+                    <div class="recipient-hint" id="recipient-hint">Получатель не выбран</div>
+                    <select id="receiver-select" title="Получатель сообщения" onchange="updateRecipientHint()"></select>
+                    <input type="text" id="message-input" placeholder="Введите текст сообщения..."
+                           onkeydown="if (event.key === 'Enter') sendMessageForSelectedUser()">
+                    <button id="send-btn" onclick="sendMessageForSelectedUser()">Отправить</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="add-user-form" style="display: none;">
+            <h3>Добавить нового пользователя</h3>
+            <div class="form-group">
+                <label for="newUserId">ID пользователя:</label>
+                <input type="number" id="newUserId" placeholder="Введите ID пользователя">
+            </div>
+            <div class="form-group">
+                <label for="newUsername">Имя пользователя:</label>
+                <input type="text" id="newUsername" placeholder="Введите имя пользователя">
+            </div>
+            <div class="form-group">
+                <label for="newFirstName">Имя:</label>
+                <input type="text" id="newFirstName" placeholder="Введите имя">
+            </div>
+            <div class="form-group">
+                <label for="newLastName">Фамилия:</label>
+                <input type="text" id="newLastName" placeholder="Введите фамилию">
+            </div>
+            <button onclick="addUser()">Добавить пользователя</button>
+        </div>
+    </div>
+
+    <script>
+        // State of the current page
+        const state = {
+            users: [],
+            selectedUserId: null,
+            messagesByUser: new Map()
+        };
+
+        // Escape user content before inserting it into HTML
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '';
+            // SQLite stores "YYYY-MM-DD HH:MM:SS" in UTC
+            const normalized = String(value).includes('T') ? value : String(value).replace(' ', 'T') + 'Z';
+            const date = new Date(normalized);
+            if (isNaN(date.getTime())) return value;
+            return date.toLocaleString('ru-RU');
+        }
+
+        function formatDay(value) {
+            const normalized = String(value).includes('T') ? value : String(value).replace(' ', 'T') + 'Z';
+            const date = new Date(normalized);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function formatTime(value) {
+            const normalized = String(value).includes('T') ? value : String(value).replace(' ', 'T') + 'Z';
+            const date = new Date(normalized);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getFullName(user) {
+            const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+            return name || user.username || `Пользователь ${user.telegram_id}`;
+        }
+
+        function setStatus(message, type = '') {
+            const statusEl = document.getElementById('global-status');
+            statusEl.textContent = message;
+            statusEl.className = 'status' + (type ? ' ' + type : '');
+        }
+
+        // Generic fetch helper that handles the { success, error } envelope
+        async function apiRequest(url, options = {}) {
+            const response = await fetch(url, options);
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                throw new Error(`Сервер вернул некорректный ответ (HTTP ${response.status})`);
+            }
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || `Ошибка запроса (HTTP ${response.status})`);
+            }
+            return data.data;
+        }
+
+        // Load the list of users
+        async function loadUsers(silent = false) {
+            if (!silent) setStatus('Загрузка...');
+            try {
+                const users = await apiRequest('/api/users');
+                state.users = users || [];
+                renderUserList();
+                populateReceiverSelect();
+
+                // Keep the selection if the user is still present
+                if (state.selectedUserId !== null) {
+                    const stillExists = state.users.some(u => Number(u.telegram_id) === Number(state.selectedUserId));
+                    if (stillExists) {
+                        selectUser(state.selectedUserId);
+                    } else {
+                        clearChat();
+                    }
+                }
+                // Сбрасываем статус только если он не был установлен вызывающим кодом
+                if (!silent) setStatus('');
+            } catch (error) {
+                console.error('Ошибка при загрузке пользователей:', error);
+                document.getElementById('user-list').innerHTML =
+                    `<div class="empty-state">Ошибка: ${escapeHtml(error.message)}</div>`;
+                setStatus(error.message, 'error');
+            }
+        }
+
+        // Render the left panel with users
+        function renderUserList() {
+            const container = document.getElementById('user-list');
+
+            if (!state.users.length) {
+                container.innerHTML = '<div class="empty-state">Нет пользователей для отображения</div>';
+                return;
+            }
+
+            container.innerHTML = state.users.map(user => {
+                const unread = user.unread_count || 0;
+                const unreadBadge = unread > 0
+                    ? `<span class="badge badge-unread">${unread} новых</span>`
+                    : '';
+                return `
+                    <div class="user-item${Number(user.telegram_id) === Number(state.selectedUserId) ? ' active' : ''}"
+                         data-user-id="${escapeHtml(user.telegram_id)}"
+                         onclick="selectUser('${escapeHtml(user.telegram_id)}')">
+                        <div class="user-item-name">
+                            <span>${escapeHtml(getFullName(user))}</span>
+                            ${unreadBadge}
+                        </div>
+                        <div class="user-item-sub">
+                            @${escapeHtml(user.username || 'no_username')} · ID: ${escapeHtml(user.telegram_id)}
+                            · Отправлено: ${user.sent_count || 0} · Получено: ${user.received_count || 0}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Fill the receiver dropdown with all other users
+        function populateReceiverSelect() {
+            const select = document.getElementById('receiver-select');
+            const previousValue = select.value;
+
+            const others = state.users
+                .filter(user => Number(user.telegram_id) !== Number(state.selectedUserId));
+
+            // По умолчанию — «случайный получатель», как в боте.
+            // Конкретного пользователя можно выбрать вручную.
+            // Пользователи с непрочитанными сообщениями помечаются:
+            // им нельзя отправить новое сообщение, пока они не ответят.
+            const options = [
+                `<option value="">🎲 Случайный получатель (как в боте)</option>`,
+                ...others.map(user => {
+                    const busy = (user.unread_count || 0) > 0;
+                    const label = busy
+                        ? `🚫 ${getFullName(user)} — не ответил, сообщения ему не отправляются`
+                        : `→ ${getFullName(user)}`;
+                    return `<option value="${escapeHtml(user.telegram_id)}">${escapeHtml(label)}</option>`;
+                })
+            ];
+
+            select.innerHTML = options.join('');
+            select.disabled = false;
+
+            // Возвращаем предыдущий выбор, если он ещё актуален
+            if (previousValue && others.some(u => Number(u.telegram_id) === Number(previousValue))) {
+                select.value = previousValue;
+            }
+
+            updateRecipientHint();
+        }
+
+        // Показываем, кому именно уйдёт сообщение
+        function updateRecipientHint() {
+            const hint = document.getElementById('recipient-hint');
+            const select = document.getElementById('receiver-select');
+            const input = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            const sender = state.users.find(u => Number(u.telegram_id) === Number(state.selectedUserId));
+
+            if (!sender) {
+                hint.className = 'recipient-hint';
+                hint.textContent = 'Сначала выберите пользователя, от имени которого пишете';
+                input.disabled = true;
+                sendBtn.disabled = true;
+                return;
+            }
+
+            const receiver = state.users.find(u => Number(u.telegram_id) === Number(select.value));
+            const awaiting = sender.awaiting_reply_count || 0;
+            const hasUnread = (sender.unread_count || 0) > 0;
+
+            // Если пользователь ждёт ответа на своё сообщение, отправка
+            // заблокирована — но только если нет входящих, на которые
+            // нужно ответить (иначе возник бы тупик в диалоге).
+            if (awaiting > 0 && !hasUnread) {
+                input.disabled = true;
+                sendBtn.disabled = true;
+                hint.className = 'recipient-hint blocked';
+                hint.textContent = `⏳ ${getFullName(sender)} ждёт ответа на отправленное сообщение — новое сообщение отправить нельзя`;
+                return;
+            }
+
+            input.disabled = false;
+            sendBtn.disabled = false;
+            hint.className = 'recipient-hint';
+
+            if (awaiting > 0 && hasUnread) {
+                hint.innerHTML = `Отправитель: <strong>${escapeHtml(getFullName(sender))}</strong> · ждёт ответа на своё сообщение, но может <strong>ответить</strong> на входящее`;
+                return;
+            }
+
+            if (!receiver) {
+                // Случайный режим — повторяем бот-логику, чтобы её было видно
+                hint.innerHTML = hasUnread
+                    ? `Отправитель: <strong>${escapeHtml(getFullName(sender))}</strong> → получатель: <em>случайный</em> · есть непрочитанные (${sender.unread_count}) — сообщение уйдёт как ответ отправителю`
+                    : `Отправитель: <strong>${escapeHtml(getFullName(sender))}</strong> → получатель: <em>случайный</em> · непрочитанных нет — сообщение уйдёт случайному пользователю`;
+                return;
+            }
+            if ((receiver.unread_count || 0) > 0) {
+                hint.innerHTML = `Отправитель: <strong>${escapeHtml(getFullName(sender))}</strong> → получатель: <strong>${escapeHtml(getFullName(receiver))}</strong> · 🚫 получатель не ответил на свои сообщения — отправка будет отклонена`;
+                return;
+            }
+            hint.innerHTML = `Отправитель: <strong>${escapeHtml(getFullName(sender))}</strong> → получатель: <strong>${escapeHtml(getFullName(receiver))}</strong> (выбран вручную)`;
+        }
+
+        // Select a user and render their conversation
+        async function selectUser(userId) {
+            state.selectedUserId = Number(userId);
+            renderUserList();
+            populateReceiverSelect();
+
+            const user = state.users.find(u => Number(u.telegram_id) === state.selectedUserId);
+            updateChatHeader(user);
+
+            await loadUserMessages(state.selectedUserId);
+        }
+
+        function updateChatHeader(user) {
+            const header = document.getElementById('chat-header');
+            if (!user) {
+                header.innerHTML = `
+                    <div class="chat-header-title">Выберите пользователя</div>
+                    <div class="chat-header-sub">Все переписки этого пользователя будут показаны ниже</div>
+                `;
+                return;
+            }
+            header.innerHTML = `
+                <div class="chat-header-title">${escapeHtml(getFullName(user))}</div>
+                <div class="chat-header-sub">
+                    @${escapeHtml(user.username || 'no_username')} · ID: ${escapeHtml(user.telegram_id)}
+                </div>
+            `;
+        }
+
+        function clearChat() {
+            state.selectedUserId = null;
+            document.getElementById('chat-body').innerHTML =
+                '<div class="empty-state">Пользователь не выбран</div>';
+            updateChatHeader(null);
+            populateReceiverSelect();
+            renderUserList();
+        }
+
+        // Load and render messages for the selected user
+        async function loadUserMessages(userId) {
+            const container = document.getElementById('chat-body');
+            container.innerHTML = '<div class="empty-state">Загрузка сообщений...</div>';
+
+            try {
+                const messages = await apiRequest(`/api/user-messages/${userId}`);
+                state.messagesByUser.set(Number(userId), messages || []);
+                renderMessages(Number(userId), messages || []);
+            } catch (error) {
+                console.error('Ошибка при загрузке сообщений пользователя:', error);
+                container.innerHTML = `<div class="empty-state">Ошибка: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        // Render messages as a structured messenger conversation
+        function renderMessages(userId, messages) {
+            const container = document.getElementById('chat-body');
+
+            if (!messages.length) {
+                container.innerHTML = '<div class="empty-state">Сообщений пока нет</div>';
+                return;
+            }
+
+            // Build a lookup so replies can quote the original message
+            const messagesById = new Map(messages.map(msg => [Number(msg.id), msg]));
+
+            const sorted = [...messages].sort((a, b) => {
+                const dateA = new Date(String(a.forwarded_at).replace(' ', 'T'));
+                const dateB = new Date(String(b.forwarded_at).replace(' ', 'T'));
+                if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                    return String(a.forwarded_at).localeCompare(String(b.forwarded_at));
+                }
+                return dateA - dateB;
+            });
+
+            let lastDay = null;
+            const parts = [];
+
+            sorted.forEach(message => {
+                const day = formatDay(message.forwarded_at);
+                if (day && day !== lastDay) {
+                    parts.push(`<div class="day-separator">${escapeHtml(day)}</div>`);
+                    lastDay = day;
+                }
+
+                const isOwn = Number(message.sender_id) === Number(userId);
+                const side = isOwn ? 'own' : 'other';
+
+                // If this message is a reply, show the quoted original text
+                const replySource = message.reply_message_id
+                    ? messagesById.get(Number(message.reply_message_id))
+                    : null;
+                const replyQuote = replySource
+                    ? `<div class="reply-quote">${escapeHtml(replySource.message_text)}</div>`
+                    : '';
+
+                const author = isOwn ? '' : `<div class="bubble-author">${escapeHtml(message.sender_name)}</div>`;
+
+                parts.push(`
+                    <div class="bubble-row ${side}">
+                        <div class="bubble">
+                            ${author}
+                            ${replyQuote}
+                            <div>${escapeHtml(message.message_text)}</div>
+                            <div class="bubble-time">${escapeHtml(formatTime(message.forwarded_at))}</div>
+                        </div>
+                    </div>
+                `);
+            });
+
+            container.innerHTML = parts.join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Send a message on behalf of the selected user
+        async function sendMessageForSelectedUser() {
+            if (state.selectedUserId === null) {
+                setStatus('Сначала выберите пользователя', 'error');
+                return;
+            }
+
+            const input = document.getElementById('message-input');
+            const messageText = input.value.trim();
+
+            if (!messageText) {
+                setStatus('Введите текст сообщения', 'error');
+                return;
+            }
+
+            // Получатель указан явно или нет:
+// пустой выбор означает бот-поведение — случайный получатель.
+// Отдельно выбранный получатель отправляет сообщение конкретному человеку.
+            const select = document.getElementById('receiver-select');
+            const receiverId = select.value || null;
+
+            const sendBtn = document.getElementById('send-btn');
+            sendBtn.disabled = true;
+            setStatus('Отправка...');
+
+            try {
+                // Если получатель выбран явно — отправляем напрямую ему.
+                // Если не выбран — работает бот-логика handleMessage:
+                // ответ на непрочитанное сообщение, иначе случайному пользователю.
+                const payload = {
+                    userId: state.selectedUserId,
+                    messageText: messageText
+                };
+                if (receiverId) {
+                    payload.receiverId = Number(receiverId);
+                }
+
+                await apiRequest('/api/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                input.value = '';
+                await loadUserMessages(state.selectedUserId);
+                await loadUsers(true);
+                // Статус выставляем после обновления списка, чтобы loadUsers его не сбросил
+                setStatus('Сообщение отправлено', 'success');
+            } catch (error) {
+                console.error('Ошибка при отправке сообщения:', error);
+                setStatus(error.message, 'error');
+            } finally {
+                // Состояние кнопки определяется текущим статусом ответа,
+                // поэтому пересчитываем его, а не просто снимаем disabled
+                updateRecipientHint();
+            }
+        }
+
+        // Show or hide the add-user form
+        function toggleAddUserForm() {
+            const form = document.getElementById('add-user-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Register a new user
+        async function addUser() {
+            const userId = document.getElementById('newUserId').value.trim();
+            const username = document.getElementById('newUsername').value.trim();
+            const firstName = document.getElementById('newFirstName').value.trim();
+            const lastName = document.getElementById('newLastName').value.trim();
+
+            if (!userId) {
+                setStatus('Введите ID пользователя', 'error');
+                return;
+            }
+
+            try {
+                await apiRequest('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: parseInt(userId, 10),
+                        username: username || `user_${userId}`,
+                        firstName: firstName || `Пользователь ${userId}`,
+                        lastName: lastName || ''
+                    })
+                });
+
+                ['newUserId', 'newUsername', 'newFirstName', 'newLastName'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+                document.getElementById('add-user-form').style.display = 'none';
+                setStatus('Пользователь добавлен', 'success');
+                await loadUsers();
+            } catch (error) {
+                console.error('Ошибка при добавлении пользователя:', error);
+                setStatus(error.message, 'error');
+            }
+        }
+
+        // Load users on page load
+        window.onload = loadUsers;
+    </script>
+</body>
+</html>

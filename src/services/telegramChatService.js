@@ -79,10 +79,23 @@ export class TelegramChatService extends IChatService {
       
       // Получаем список пользователей (кроме отправителя)
       const users = await this.getAllUsers();
-      const availableUsers = users.filter(user => user.telegram_id !== sender.id);
-      
+
+      // Пользователи, которые ещё не ответили на полученное сообщение,
+      // исключаются из пула получателей: не отправляем им новые сообщения,
+      // пока они не разберутся с текущими
+      const busyUserIds = await this.getBusyUserIds();
+
+      const availableUsers = users.filter(user =>
+        Number(user.telegram_id) !== Number(sender.id) &&
+        !busyUserIds.includes(Number(user.telegram_id))
+      );
+
       if (availableUsers.length === 0) {
-        throw new Error('Нет доступных пользователей для пересылки');
+        throw new Error(
+          busyUserIds.length > 0
+            ? 'Нет доступных пользователей: все остальные ещё не ответили на полученные сообщения'
+            : 'Нет доступных пользователей для пересылки'
+        );
       }
       
       // Выбираем случайного получателя
@@ -110,6 +123,70 @@ export class TelegramChatService extends IChatService {
   }
 
   /**
+   * Отправить сообщение от имени пользователя конкретному получателю
+   * @param {Object} sender - отправитель
+   * @param {number} receiverId - ID получателя
+   * @param {string} messageText - текст сообщения
+   * @returns {Promise<Object>}
+   */
+  async sendMessageToUser(sender, receiverId, messageText, replyMessageId = null) {
+    try {
+      // Проверяем, что отправитель зарегистрирован
+      const senderUser = await this.getUser(sender.id);
+      if (!senderUser) {
+        throw new Error('Пользователь не зарегистрирован');
+      }
+
+      // Проверяем, что получатель зарегистрирован
+      const receiverUser = await this.getUser(receiverId);
+      if (!receiverUser) {
+        throw new Error('Получатель не зарегистрирован');
+      }
+
+      // Нельзя отправить сообщение самому себе
+      if (Number(sender.id) === Number(receiverId)) {
+        throw new Error('Нельзя отправить сообщение самому себе');
+      }
+
+      // Пользователю, который ещё не ответил на полученное сообщение,
+      // новые сообщения не отправляем. Это правило НЕ применяется,
+      // когда сообщение является ответом — иначе ответить ему
+      // было бы невозможно.
+      if (replyMessageId === null) {
+        const receiverUnreplied = await this.getUnrepliedMessages(receiverId);
+        if (receiverUnreplied && receiverUnreplied.length > 0) {
+          throw new Error(
+            `${receiverUser.first_name || 'Пользователь'} ещё не ответил на полученное сообщение — новые сообщения ему не отправляются`
+          );
+        }
+      }
+
+      // Сохраняем сообщение в базе. Если это ответ на конкретное сообщение,
+      // связываем их через reply_message_id и помечаем исходное отвеченным
+      const db = getDB();
+      const result = await db.run(
+        `INSERT INTO messages (sender_id, receiver_id, message_text, reply_message_id)
+         VALUES (?, ?, ?, ?)`,
+        [sender.id, receiverId, messageText, replyMessageId]
+      );
+
+      if (replyMessageId) {
+        await db.run('UPDATE messages SET replied = TRUE WHERE id = ?', [replyMessageId]);
+      }
+
+      return {
+        id: result.lastID,
+        sender_id: Number(sender.id),
+        receiver_id: Number(receiverId),
+        message_text: messageText
+      };
+    } catch (error) {
+      console.error('Ошибка при отправке сообщения пользователю:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Ответить на сообщение через Telegram
    * @param {Object} user - пользователь, который отвечает
    * @param {string} replyText - текст ответа
@@ -130,12 +207,19 @@ export class TelegramChatService extends IChatService {
         return;
       }
       
-      // Обновляем сообщение как отвеченный
+      // Сохраняем ответ как отдельное сообщение, связанное с исходным
+      // через reply_message_id, и отмечаем исходное сообщение отвеченным
       await db.run(
-        'UPDATE messages SET replied = TRUE WHERE id = ?', 
+        `INSERT INTO messages (sender_id, receiver_id, message_text, reply_message_id)
+         VALUES (?, ?, ?, ?)`,
+        [user.id, lastUnrepliedMessage.sender_id, replyText, lastUnrepliedMessage.id]
+      );
+
+      await db.run(
+        'UPDATE messages SET replied = TRUE WHERE id = ?',
         [lastUnrepliedMessage.id]
       );
-      
+
     } catch (error) {
       console.error('Ошибка при ответе на сообщение:', error);
       throw error;
@@ -157,6 +241,48 @@ export class TelegramChatService extends IChatService {
       return messages;
     } catch (error) {
       console.error('Ошибка при получении непрочитанных сообщений:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Получить ID пользователей, у которых есть непрочитанные входящие сообщения.
+   * Таким пользователям не отправляют новые сообщения, пока они не ответят.
+   * @returns {Promise<Array<number>>}
+   */
+  async getBusyUserIds() {
+    try {
+      const db = getDB();
+      const rows = await db.all(
+        'SELECT DISTINCT receiver_id FROM messages WHERE replied = FALSE'
+      );
+      return rows.map(row => Number(row.receiver_id));
+    } catch (error) {
+      console.error('Ошибка при получении занятых пользователей:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Получить сообщения пользователя, на которые ещё не получен ответ.
+   * Пользователь не может отправить новое сообщение, пока есть такое.
+   * @param {number} userId - ID пользователя
+   * @returns {Promise<Array>}
+   */
+  async getAwaitingReplyMessages(userId) {
+    try {
+      const db = getDB();
+      const messages = await db.all(
+        `SELECT m.*, u.first_name as receiver_first_name, u.last_name as receiver_last_name
+         FROM messages m
+         LEFT JOIN users u ON m.receiver_id = u.telegram_id
+         WHERE m.sender_id = ? AND m.replied = FALSE
+         ORDER BY m.forwarded_at ASC`,
+        [userId]
+      );
+      return messages;
+    } catch (error) {
+      console.error('Ошибка при получении сообщений, ожидающих ответа:', error);
       throw error;
     }
   }

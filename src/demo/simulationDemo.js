@@ -1,77 +1,226 @@
-// Демонстрация работы сервиса имитации пользователей
-import { SimulationService } from '../services/simulationService.js';
+// Демонстрация симуляции пользователей через API
+import fetch from 'node-fetch';
 
-async function runDemo() {
-  console.log('=== Демонстрация работы сервиса имитации ===\n');
+// Массивы для генерации уникальных сообщений
+const greetings = [
+  "Привет!",
+  "Здравствуйте!",
+  "Добрый день!",
+  "Доброе утро!",
+  "Добрый вечер!"
+];
+
+const questions = [
+  "Как дела?",
+  "Что нового?",
+  "Как прошёл день?",
+  "Что ты думаешь об этом?",
+  "Можешь помочь мне с этим?",
+  "Какой у тебя любимый фильм?",
+  "Что ты ел сегодня?",
+  "Какой сегодня день недели?",
+  "Ты любишь кофе?",
+  "Какой у тебя любимый цвет?"
+];
+
+const responses = [
+  "Отлично, спасибо!",
+  "Всё хорошо, спасибо!",
+  "Нормально, спасибо!",
+  "Отлично, живу!",
+  "Всё отлично!",
+  "Прекрасно!",
+  "Плохо не могу, но и хорошо не скажу",
+  "Так себе",
+  "Спасибо за интересный вопрос!",
+  "Это интересно!"
+];
+
+const topics = [
+  "работа",
+  "образование",
+  "путешествия",
+  "кино",
+  "музыка",
+  "спорт",
+  "еда",
+  "погода",
+  "технологии",
+  "путешествия"
+];
+
+const randomMessages = [
+  "Это интересный вопрос!",
+  "Я тоже думаю так же.",
+  "Мне нравится этот подход.",
+  "Это действительно важно.",
+  "Спасибо за информацию!",
+  "Понимаю, что ты имеешь в виду.",
+  "Интересно, а как это работает?",
+  "У меня есть другой взгляд на эту тему.",
+  "Мне интересно узнать больше об этом.",
+  "Это действительно полезная информация."
+];
+
+// Функция для генерации случайного задержки (1-5 секунд)
+function randomDelay() {
+  return Math.floor(Math.random() * 4000) + 1000; // от 1 до 5 секунд
+}
+
+// Функция для ожидания
+async function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Генерация уникальных сообщений для каждого пользователя
+function generateUniqueMessages(userId, index) {
+  const userMessages = [];
   
-  // Создаем сервис симуляции
-  const simulationService = new SimulationService();
+  // Основные темы для каждого пользователя
+  const userTopic = topics[index % topics.length];
   
-  try {
-    // Создаем нескольких пользователей для симуляции
-    console.log('1. Создание пользователей...');
-    const user1 = simulationService.createUser();
-    const user2 = simulationService.createUser();
+  // Создаем уникальный набор сообщений для каждого пользователя
+  for (let i = 0; i < 3 + Math.floor(Math.random() * 5); i++) {
+    const message = {
+      userId: userId,
+      messageText: `${greetings[Math.floor(Math.random() * greetings.length)]} ` +
+                  `${questions[Math.floor(Math.random() * questions.length)]} ` +
+                  `(${userTopic}) ` +
+                  `${responses[Math.floor(Math.random() * responses.length)]} ` +
+                  `${randomMessages[Math.floor(Math.random() * randomMessages.length)]}`
+    };
     
-    console.log(`Создан пользователь 1: ${user1.username}`);
-    console.log(`Создан пользователь 2: ${user2.username}\n`);
-    
-    // Регистрируем пользователей
-    console.log('2. Регистрация пользователей...');
-    await simulationService.registerUser(user1);
-    await simulationService.registerUser(user2);
-    
-    // Имитируем диалоги
-    console.log('\n3. Имитация диалогов...');
-    
-    // Пользователь 1 отправляет вопрос
-    const question1 = 'Привет! Как дела?';
-    console.log(`Пользователь ${user1.username} спрашивает: "${question1}"`);
-    await simulationService.sendMessage(user1, question1);
-    
-    // Имитируем ответ от ИИ
-    const aiResponse1 = 'Привет! У меня всё хорошо, спасибо за интерес! Как у вас дела?';
-    console.log(`ИИ отвечает: "${aiResponse1}"`);
-    
-    // Пользователь 2 отправляет вопрос
-    const question2 = 'Можно ли получить помощь с задачей?';
-    console.log(`Пользователь ${user2.username} спрашивает: "${question2}"`);
-    await simulationService.sendMessage(user2, question2);
-    
-    // Имитируем ответ от ИИ
-    const aiResponse2 = 'Конечно, я постараюсь помочь. Расскажите подробнее о вашей задаче.';
-    console.log(`ИИ отвечает: "${aiResponse2}"`);
-    
-    // Пользователь 1 отвечает на вопрос пользователя 2
-    const reply = 'Спасибо за помощь! Это очень полезно.';
-    console.log(`Пользователь ${user1.username} отвечает: "${reply}"`);
-    await simulationService.sendMessage(user1, reply);
-    
-    // Получаем диалоги пользователей
-    console.log('\n4. Получение диалогов...');
-    const dialogs1 = await simulationService.getUserDialogs(user1.id);
-    const dialogs2 = await simulationService.getUserDialogs(user2.id);
-    
-    console.log(`Диалоги пользователя ${user1.username}:`);
-    dialogs1.forEach(dialog => {
-      console.log(`  - ${dialog.message_text} (${new Date(dialog.forwarded_at).toLocaleString('ru-RU')})`);
-    });
-    
-    console.log(`Диалоги пользователя ${user2.username}:`);
-    dialogs2.forEach(dialog => {
-      console.log(`  - ${dialog.message_text} (${new Date(dialog.forwarded_at).toLocaleString('ru-RU')})`);
-    });
-    
-    console.log('\n=== Демонстрация завершена ===');
-    
-  } catch (error) {
-    console.error('Ошибка в демонстрации:', error);
+    userMessages.push(message);
   }
+  
+  return userMessages;
 }
 
-// Запускаем демо, если файл запущен напрямую
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runDemo();
+async function simulationDemo() {
+  console.log('=== Демонстрация симуляции пользователей ===\n');
+  
+  const users = [];
+  const allMessages = [];
+  
+  // Регистрация 10 пользователей
+  console.log('1. Регистрация 10 пользователей...');
+  for (let i = 0; i < 10; i++) {
+    const userId = 20000 + i;
+    const username = `sim_user_${userId}`;
+    const firstName = `Симулятор${i+1}`;
+    const lastName = `Пользователь${i+1}`;
+    
+    console.log(`Регистрация пользователя ${i+1} (${username})...`);
+    
+    const registerResponse = await fetch('http://localhost:3000/api/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId: userId,
+        username: username,
+        firstName: firstName,
+        lastName: lastName
+      })
+    });
+    
+    const registerResult = await registerResponse.json();
+    console.log(`Результат регистрации пользователя ${i+1}:`, registerResult);
+    
+    users.push({
+      id: userId,
+      username: username,
+      firstName: firstName,
+      lastName: lastName
+    });
+    
+    // Добавляем задержку между регистрациями
+    await wait(randomDelay());
+  }
+  
+  console.log('\n2. Получение списка пользователей...');
+  const usersResponse = await fetch('http://localhost:3000/api/users');
+  const usersResult = await usersResponse.json();
+  console.log('Список пользователей:', usersResult.data.length, 'пользователей зарегистрировано');
+  
+  // Генерация уникальных сообщений для каждого пользователя
+  console.log('\n3. Генерация уникальных сообщений для каждого пользователя...');
+  for (let i = 0; i < users.length; i++) {
+    const userMessages = generateUniqueMessages(users[i].id, i);
+    allMessages.push(...userMessages);
+    console.log(`Пользователь ${i+1} (${users[i].username}): ${userMessages.length} сообщений`);
+    
+    // Добавляем задержку между пользователями
+    await wait(randomDelay());
+  }
+  
+  // Отправка всех сообщений с рандомными задержками
+  console.log('\n4. Отправка сообщений...');
+  let totalMessages = 0;
+  for (const message of allMessages) {
+    console.log(`Отправка сообщения от пользователя ${message.userId}: "${message.messageText.substring(0, 50)}..."`);
+    
+    const messageResponse = await fetch('http://localhost:3000/api/message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(message)
+    });
+    
+    const messageResult = await messageResponse.json();
+    console.log(`Результат отправки:`, messageResult);
+    
+    totalMessages++;
+    
+    // Добавляем случайную задержку между сообщениями
+    await wait(randomDelay());
+  }
+  
+  console.log(`\nОтправлено всего ${totalMessages} сообщений`);
+  
+  // Получение всех диалогов
+  console.log('\n5. Получение всех диалогов...');
+  const dialogsResponse = await fetch('http://localhost:3000/api/dialogs');
+  const dialogsResult = await dialogsResponse.json();
+  console.log(`Все диалоги: ${dialogsResult.data.length} диалогов`);
+  
+  // Показываем несколько первых диалогов
+  console.log('\nПримеры диалогов:');
+  for (let i = 0; i < Math.min(5, dialogsResult.data.length); i++) {
+    const dialog = dialogsResult.data[i];
+    console.log(`\nДиалог ${i+1}:`);
+    console.log(`  ID: ${dialog.id}`);
+    console.log(`  Отправитель: ${dialog.senderId} (${dialog.senderName})`);
+    console.log(`  Получатель: ${dialog.recipientId} (${dialog.recipientName})`);
+    console.log(`  Сообщение: "${dialog.messageText.substring(0, 100)}..."`);
+    console.log(`  Ответ: "${dialog.replyText ? dialog.replyText.substring(0, 100) : 'Нет ответа'}"`);
+  }
+  
+  // Показываем статистику по пользователям
+  console.log('\n6. Статистика по пользователям:');
+  const userStats = {};
+  dialogsResult.data.forEach(dialog => {
+    if (!userStats[dialog.senderId]) {
+      userStats[dialog.senderId] = { sent: 0, received: 0 };
+    }
+    if (!userStats[dialog.recipientId]) {
+      userStats[dialog.recipientId] = { sent: 0, received: 0 };
+    }
+    
+    userStats[dialog.senderId].sent++;
+    userStats[dialog.recipientId].received++;
+  });
+  
+  Object.entries(userStats).forEach(([userId, stats]) => {
+    const user = users.find(u => u.id === parseInt(userId));
+    const username = user ? user.username : `Пользователь${userId}`;
+    console.log(`${username} (ID: ${userId}): отправил ${stats.sent}, получил ${stats.received}`);
+  });
+  
+  console.log('\n=== Симуляция пользователей завершена ===');
 }
 
-export { runDemo };
+// Запуск демонстрации
+simulationDemo().catch(console.error);
