@@ -1,6 +1,6 @@
 // Обработчик сообщений
-import messageService from '../../../services/messageService.js';
-import messages from '../../../locales/index.js';
+import messageService from '../../services/messageService.js';
+import messages from '../../locales/index.js';
 
 const handleMessage = async (ctx) => {
   try {

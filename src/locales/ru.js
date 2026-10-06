@@ -16,7 +16,7 @@ export default {
   
   NO_USERS_AVAILABLE: 'К сожалению, пока нет других пользователей для пересылки сообщения.',
   
-  MESSAGE_FORWARDED: 'Ваше сообщение было переслано пользователю %s',
+  MESSAGE_FORWARDED_ANONYMOUS: 'Ваше сообщение было переслано',
   
   // Errors
   ERROR_MESSAGE_PROCESSING: 'Произошла ошибка при обработке вашего сообщения.',
@@ -25,5 +25,5 @@ export default {
   INVALID_MESSAGE_TYPE: 'Пожалуйста, отправьте текстовое сообщение.',
   
   // Notifications
-  NEW_MESSAGE_NOTIFICATION: 'Сообщение от пользователя %s:\n\n%s'
+  NEW_MESSAGE_NOTIFICATION_ANONYMOUS: '%s'
 };
