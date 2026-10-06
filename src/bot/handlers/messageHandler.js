@@ -1,29 +1,34 @@
 // Обработчик сообщений
-import messageService from '../../services/messageService.js';
+import { MessageBusinessService } from '../../services/messageBusinessService.js';
+import { TelegramChatService } from '../../services/telegramChatService.js';
 import messages from '../../locales/index.js';
+
+// Создаем экземпляр сервиса чатов для Telegram
+const telegramChatService = new TelegramChatService();
+// Создаем бизнес-сервис с использованием Telegram-чата
+const messageBusinessService = new MessageBusinessService(telegramChatService);
 
 export const handleMessage = async (ctx) => {
   try {
     // Проверяем, что сообщение текстовое
     if (ctx.message.text) {
-      // Проверяем, есть ли у пользователя непрочитанные сообщения
-      // Если да - считаем новое сообщение ответом на последнее непрочитанное
-      const unrepliedMessages = await messageService.getUnrepliedMessages(ctx.from.id);
+      // Получаем информацию о пользователе из контекста Telegram
+      const sender = {
+        id: ctx.from.id,
+        username: ctx.from.username,
+        firstName: ctx.from.first_name,
+        lastName: ctx.from.last_name
+      };
       
-      if (unrepliedMessages && unrepliedMessages.length > 0) {
-        // Отвечаем на последнее непрочитанное сообщение
-        await messageService.replyToLastMessage(ctx);
-      } else {
-        // Если у пользователя нет непрочитанных сообщений, 
-        // то отправляем сообщение только если пользователь зарегистрирован
-        const user = await messageService.getUser(ctx.from.id);
-        if (!user) {
-          await ctx.reply(messages.ru.USER_NOT_REGISTERED);
-          return;
-        }
-        
-        // Пересылаем как новое сообщение
-        await messageService.forwardMessage(ctx);
+      // Обрабатываем сообщение через бизнес-логику
+      const result = await messageBusinessService.handleMessage(sender, ctx.message.text);
+      
+      if (result.type === 'error') {
+        await ctx.reply(result.message);
+      } else if (result.type === 'forward') {
+        await ctx.reply(messages.ru.MESSAGE_FORWARDED.replace('%s', 'пользователю'));
+      } else if (result.type === 'reply') {
+        await ctx.reply(messages.ru.REPLY_SUCCESS);
       }
     } else {
       // Для других типов сообщений можно добавить обработку

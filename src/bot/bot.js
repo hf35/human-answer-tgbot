@@ -1,7 +1,7 @@
 // Инициализация бота и настройка обработчиков
 import { Telegraf } from 'telegraf';
 import messageHandler from './handlers/messageHandler.js';
-import commandHandler from './handlers/commandHandler.js';
+import * as commandHandler from './handlers/commandHandler.js';
 
 const init = (bot) => {
   // Обработка команд

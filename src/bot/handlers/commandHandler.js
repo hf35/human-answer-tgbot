@@ -1,6 +1,9 @@
 // Обработчик команд
 import messages from '../../locales/index.js';
-import { createUser } from '../../services/userService.js';
+import { TelegramChatService } from '../../services/telegramChatService.js';
+
+// Создаем экземпляр сервиса чатов для Telegram
+const telegramChatService = new TelegramChatService();
 
 export const start = async (ctx) => {
   await ctx.reply(messages.ru.COMMAND_START);
@@ -19,7 +22,8 @@ export const register = async (ctx) => {
       lastName: ctx.from.last_name
     };
     
-    await createUser(userData);
+    // Регистрируем пользователя через чат-сервис
+    await telegramChatService.createUser(userData);
     await ctx.reply(messages.ru.COMMAND_REGISTER_SUCCESS);
   } catch (error) {
     console.error('Ошибка при регистрации пользователя:', error);
